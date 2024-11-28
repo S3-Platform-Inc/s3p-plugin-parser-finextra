@@ -187,5 +187,6 @@ class Finextra(S3PParserBase):
             # if current_date < end_date:
             #     self.logger.info('Текущая дата меньше окончательной даты. Прерывание парсинга.')
             #     break
+
         # ---
         # ========================================
