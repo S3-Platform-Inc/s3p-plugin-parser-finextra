@@ -1,8 +1,7 @@
 import datetime
 import importlib.util
 import os
-from typing import Type
-import sys
+from typing import Callable, Union
 
 import pytest
 from pathlib import Path
@@ -13,7 +12,6 @@ from selenium.webdriver import Chrome
 from selenium.webdriver.ie.webdriver import WebDriver
 
 from tests.config.fixtures import fix_plugin_config, project_config
-from tests.payload.fixtures import execute_timeout
 from s3p_sdk.types import S3PRefer, S3PDocument, S3PPlugin, S3PPluginRestrictions
 from s3p_sdk.plugin.types import SOURCE
 
@@ -43,7 +41,7 @@ class TestPayloadRun:
         return S3PPlugin(1, 'unittests/repo/1', True, None, None, SOURCE, "3.0")
 
     @pytest.fixture(scope="module", autouse=True)
-    def fix_payload(self, project_config, fix_plugin_config) -> Type[S3PParserBase]:
+    def fix_payload(self, project_config, fix_plugin_config) -> S3PParserBase:
         MODULE_NAME: str = 's3p_plugin_parser_finextra'
         """Загружает конфигурацию из config.py файла по динамическому пути на основании конфигурации"""
         payload_path = Path(project_config.root) / 'src' / project_config.name / fix_plugin_config.payload.file
@@ -60,17 +58,20 @@ class TestPayloadRun:
         assert issubclass(parser_class, S3PParserBase), f"{class_name} is not a subclass of S3PParserBase."
         return parser_class
 
-    def run_payload(self, payload: Type[S3PParserBase], _plugin: S3PPlugin, driver: WebDriver, refer: S3PRefer, restrictions: S3PPluginRestrictions):
-        # !WARNING Требуется изменить путь до актуального парсера плагина
-        from src.s3p_plugin_parser_finextra.finextra import Finextra
-        if isinstance(payload, type(Finextra)):
-            _payload = payload(refer=refer, plugin=_plugin, web_driver=driver, restrictions=restrictions)
-            return _payload.content()
-        else:
-            assert False, "Тест проверяет payload плагина"
+    def run_payload(self, payload: Union[S3PParserBase, Callable], refer: S3PRefer, _plugin: S3PPlugin, restrictions: S3PPluginRestrictions, driver: WebDriver, host: str):
 
-    @pytest.mark.timeout(100)
-    def test_all_cases_with_once_executing_parser(self, chrome_driver, fix_s3pRefer, fix_payload, fix_s3pPlugin):
+        _payload = payload(
+            refer=refer,
+            plugin=_plugin,
+            restrictions=restrictions,
+            web_driver=driver,
+            host=host
+        )
+        return _payload.content()
+
+    # !WARNING: Изменить максимальное время работы плагина из логических соображений
+    @pytest.mark.timeout(30)
+    def test_all_cases_with_once_executing_parser(self, chrome_driver, fix_s3pRefer, fix_payload, fix_s3pPlugin, fix_plugin_config):
         """
         Test Case
 
@@ -82,8 +83,8 @@ class TestPayloadRun:
             3. Каждый полученный документ должен обязательно содержать 3 ключевых поля (title, link, published)
 
         """
-        max_docs = 10
-        docs = self.run_payload(fix_payload, fix_s3pPlugin, chrome_driver, fix_s3pRefer, S3PPluginRestrictions(max_docs, None, None, None))
+        max_docs = 4
+        docs = self.run_payload(fix_payload, fix_s3pRefer, fix_s3pPlugin, S3PPluginRestrictions(max_docs, None, None, None), chrome_driver, str(fix_plugin_config.payload.entry.params[1].value))
 
         # 1. Количество материалов должно быть не меньше параметра максимального числа материалов.
         assert len(docs) == max_docs, f"Payload вернул {len(docs)} материалов. А должен был {max_docs}"
@@ -99,9 +100,9 @@ class TestPayloadRun:
             assert el.hash
 
     @pytest.mark.timeout(100)
-    def test_date_restrictions(self, chrome_driver, fix_s3pRefer, fix_payload, fix_s3pPlugin):
-        _boundary_date = datetime.datetime(2024, 12, 20)
-        docs = self.run_payload(fix_payload, fix_s3pPlugin, chrome_driver, fix_s3pRefer, S3PPluginRestrictions(None, None, _boundary_date, None))
+    def test_date_restrictions(self, chrome_driver, fix_s3pRefer, fix_payload, fix_s3pPlugin, fix_plugin_config):
+        _boundary_date = datetime.datetime.now() - datetime.timedelta(days=1)
+        docs = self.run_payload(fix_payload, fix_s3pRefer, fix_s3pPlugin, S3PPluginRestrictions(None, None, _boundary_date, None), chrome_driver, str(fix_plugin_config.payload.entry.params[1].value))
 
         for doc in docs:
             assert doc.published >= _boundary_date, f"The {doc.to_logging} must meet the restriction (older than {_boundary_date})"

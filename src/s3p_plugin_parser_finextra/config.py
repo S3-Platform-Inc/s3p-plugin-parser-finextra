@@ -21,7 +21,7 @@ config = PluginConfig(
         files=['finextra.py', ],        # Список файлов, которые будут использоваться в плагине (эти файлы будут сохраняться в платформе)
         is_localstorage=False,
         restrictions=RestrictionsConfig(
-            maximum_materials=100,
+            maximum_materials=300,
             to_last_material=None,
             from_date=datetime.datetime(2024, 8, 1),
             to_date=None,
@@ -47,6 +47,7 @@ config = PluginConfig(
             method='content',
             params=[
                 payload.entry.ModuleParamConfig(key='web_driver', module_name=WebDriver, bus=True),
+                payload.entry.ConstParamConfig(key='host', value="https://www.finextra.com"),
             ]
         )
     )
