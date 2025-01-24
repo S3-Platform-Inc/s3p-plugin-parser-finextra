@@ -1,8 +1,10 @@
 from datetime import timedelta, datetime
 import time
 import dateparser
+from s3p_sdk.exceptions.parser import S3PPluginParserOutOfRestrictionException, S3PPluginParserFinish
 from s3p_sdk.plugin.payloads.parsers import S3PParserBase
-from s3p_sdk.types import S3PRefer, S3PDocument, S3PPlugin
+from s3p_sdk.types import S3PRefer, S3PDocument, S3PPlugin, S3PPluginRestrictions
+from s3p_sdk.types.plugin_restrictions import FROM_DATE
 from selenium.common import NoSuchElementException
 from selenium.webdriver.chrome.webdriver import WebDriver
 from selenium.webdriver.common.by import By
@@ -10,17 +12,18 @@ from selenium.webdriver.support import expected_conditions as ec
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.common import TimeoutException
 
+
 class Finextra(S3PParserBase):
     """
     A Parser payload that uses S3P Parser base class.
     """
-    HOST = "https://www.finextra.com"
-    def __init__(self, refer: S3PRefer, plugin: S3PPlugin, web_driver: WebDriver, max_count_documents: int = None,
-                 last_document: S3PDocument = None):
-        super().__init__(refer, plugin, max_count_documents, last_document)
+
+    def __init__(self, refer: S3PRefer, plugin: S3PPlugin, restrictions: S3PPluginRestrictions, web_driver: WebDriver, host: str):
+        super().__init__(refer, plugin, restrictions)
 
         # Тут должны быть инициализированы свойства, характерные для этого парсера. Например: WebDriver
         self._driver = web_driver
+        self.HOST = host
         self._wait = WebDriverWait(self._driver, timeout=20)
 
     def _parse(self):
@@ -79,17 +82,20 @@ class Finextra(S3PParserBase):
                     time.sleep(1)
 
                     try:
-                        title = self._driver.find_element(By.XPATH, "//div[contains(@class, 'article-content')]/h1").text
+                        title = self._driver.find_element(By.XPATH,
+                                                          "//div[contains(@class, 'article-content')]/h1").text
                         article_type = self._driver.current_url.split('/')[3]
                         # title = article_title.find_element(By.TAG_NAME, 'h1').text
-                        date_text = self._driver.find_element(By.XPATH, "//p[contains(@class, 'card-baseline')]/time").get_attribute('datetime')
+                        date_text = self._driver.find_element(By.XPATH,
+                                                              "//p[contains(@class, 'card-baseline')]/time").get_attribute(
+                            'datetime')
 
                         date = dateparser.parse(date_text)
-                        tw_count = 0 # article_title.find_element(By.CLASS_NAME, 'module--share-this').find_element(By.ID,'twitterResult').text
-                        li_count = 0 # article_title.find_element(By.CLASS_NAME, 'module--share-this').find_element(By.ID,'liResult').text
-                        fb_count = 0 # article_title.find_element(By.CLASS_NAME, 'module--share-this').find_element(By.ID,'fbResult').text
+                        tw_count = 0  # article_title.find_element(By.CLASS_NAME, 'module--share-this').find_element(By.ID,'twitterResult').text
+                        li_count = 0  # article_title.find_element(By.CLASS_NAME, 'module--share-this').find_element(By.ID,'liResult').text
+                        fb_count = 0  # article_title.find_element(By.CLASS_NAME, 'module--share-this').find_element(By.ID,'fbResult').text
 
-                        left_tags = '' # self._driver.find_element(By.CLASS_NAME, 'article--tagging-left')
+                        left_tags = ''  # self._driver.find_element(By.CLASS_NAME, 'article--tagging-left')
 
                         try:
                             related_comp = ', '.join([el.text for el in left_tags.find_elements(By.XPATH,
@@ -132,7 +138,8 @@ class Finextra(S3PParserBase):
                             category_name = ''
                             category_desc = ''
 
-                        abstract = self._driver.find_element(By.XPATH, "//div[contains(@class, 'article-content')]/p[@class='standfirst']").text
+                        abstract = self._driver.find_element(By.XPATH,
+                                                             "//div[contains(@class, 'article-content')]/p[@class='standfirst']").text
                         text = self._driver.find_element(By.XPATH, "//div[contains(@class, 'alt-body-copy')]").text
                         comment_count = 0
                         # comment_count = self._driver.find_element(By.ID, 'comment').find_element(By.XPATH,
@@ -145,6 +152,7 @@ class Finextra(S3PParserBase):
                         self._driver.switch_to.window(self._driver.window_handles[0])
                         continue
                     else:
+                        date = date.replace(tzinfo=None)
                         document = S3PDocument(
                             id=None,
                             title=title,
@@ -168,7 +176,15 @@ class Finextra(S3PParserBase):
                             published=date,
                             loaded=None
                         )
-                        self._find(document)
+
+                        try:
+                            self._find(document)
+                        except S3PPluginParserOutOfRestrictionException as e:
+                            if e.restriction == FROM_DATE:
+                                self.logger.debug(f'Document is out of date range `{self._restriction.from_date}`')
+                                raise S3PPluginParserFinish(self._plugin,
+                                                            f'Document is out of date range `{self._restriction.from_date}`',
+                                                            e)
 
                     self._driver.close()
                     self._driver.switch_to.window(self._driver.window_handles[0])
@@ -177,16 +193,9 @@ class Finextra(S3PParserBase):
                     pagination = self._driver.find_element(By.ID, 'pagination')
                     next_page_url = pagination.find_element(By.XPATH, '//*[text() = \'›\']').get_attribute('href')
                     self._driver.get(next_page_url)
-                except Exception as e:
+                except:
                     self.logger.info('Пагинация не найдена. Прерывание обработки страницы')
                     break
 
             current_date = current_date - timedelta(1)
             self.logger.info(f"Изменение даты на новую: {datetime.strftime(current_date, '%Y-%m-%d')}")
-
-            # if current_date < end_date:
-            #     self.logger.info('Текущая дата меньше окончательной даты. Прерывание парсинга.')
-            #     break
-
-        # ---
-        # ========================================
