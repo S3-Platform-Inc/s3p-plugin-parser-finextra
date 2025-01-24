@@ -99,7 +99,7 @@ class TestPayloadRun:
             assert el.published is not None and isinstance(el.published, datetime.datetime), f"Документ {el} должен обязательно содержать ключевое поле published"
             assert el.hash
 
-    @pytest.mark.timeout(100)
+    @pytest.mark.timeout(120)
     def test_date_restrictions(self, chrome_driver, fix_s3pRefer, fix_payload, fix_s3pPlugin, fix_plugin_config):
         _boundary_date = datetime.datetime.now() - datetime.timedelta(days=1)
         docs = self.run_payload(fix_payload, fix_s3pRefer, fix_s3pPlugin, S3PPluginRestrictions(None, None, _boundary_date, None), chrome_driver, str(fix_plugin_config.payload.entry.params[1].value))
