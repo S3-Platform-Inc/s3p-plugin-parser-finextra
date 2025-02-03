@@ -27,29 +27,32 @@ class Finextra(S3PParserBase):
 
     def find_additions(self, soup, document):
         # Ищем секцию с дополнительной информацией
-        channels_section = soup.find('div', class_='additional-info')
+        additional_section = soup.find('div', class_='additional-info')
         speakers_section = soup.find('div', {'id': 'ctl00_ctl00_body_main_SummaryForm_hSpeakers'})
+        additionals_dict = {}
         speakers = []
-        additions = []
 
-        if channels_section:
-            if channels_section:
-                for addition_name in self.types_additions:
-                    # Проверяем, существует ли хотя бы один элемент с классом .info-icon.{addition_name}
-                    elements = channels_section.select(f'.info-icon.{addition_name} a')
-                    if elements:  # Если список не пуст
-                        document.other['general'][addition_name] = [a.get_text(strip=True) for a in elements]
-                    else:
-                        # Если элементы отсутствуют, можно добавить пустой список или другое значение по умолчанию
-                        document.other['general'][addition_name] = []
+        if additional_section:
+            for addition_name in self.types_additions:
+                # Проверяем, существует ли хотя бы один элемент с классом .info-icon.{addition_name}
+                elements = additional_section.select(f'.info-icon.{addition_name} a')
+                if elements:  # Если список не пуст
+                    additionals_dict[addition_name] = [a.get_text(strip=True) for a in elements]
+                else:
+                    # Если элементы отсутствуют, можно добавить пустой список или другое значение по умолчанию
+                    additionals_dict[addition_name] = []
+            return(additionals_dict)
         elif speakers_section:
             for speaker in speakers_section.find_all('li', class_='event-speakers-people-container'):
                 name = speaker.find('h4', class_='event-speakers-people-text-title').text.strip()
                 activity = speaker.find('p').text.strip()
                 speakers.append([name, activity])
-                document.other['general']['speakers'] = speakers
+                additionals_dict['speakers'] = speakers
+            return(additionals_dict)
+        else:
+            print(document.link)
 
-    def find_text(self, soup):
+    def find_text(self, soup, document):
         # Ищем блок с текстом статьи
         article_body = soup.find('div', class_='alt-body-copy')
         event_summary_article_body = soup.find('div', class_='event-summary alt-body-copy')
@@ -63,7 +66,7 @@ class Finextra(S3PParserBase):
             summary_text += '\n'.join([p.get_text(strip=True) for p in event_summary_article_body.find_all('p')])
             return (summary_text)
         else:
-            raise ValueError("Article text block not found")
+            raise ValueError(f"Article text block not found: {document.link}")
 
     def _parse(self):
         """
@@ -93,8 +96,8 @@ class Finextra(S3PParserBase):
                  soup = BeautifulSoup(html, 'html.parser')
 
                  document.other['general'] = {}
-                 document.other['general']['text'] = self.find_text(soup)
-                 self.find_additions(soup, document)
+                 document.other['general']['text'] = self.find_text(soup, document)
+                 document.other['general'] = self.find_additions(soup, document)
 
 
                  try:
