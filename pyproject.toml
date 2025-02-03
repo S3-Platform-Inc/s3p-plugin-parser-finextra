@@ -7,17 +7,17 @@ readme = "readme.md"
 
 [tool.poetry.dependencies]
 python = "^3.11"
-s3p-sdk = "0.2.10"
+s3p-sdk = "0.2.11"
 dateparser = "^1.2.0"
+feedparser = "^6.0.11"
+beautifulsoup4 = "^4.13.0"
+requests = "^2.32.3"
 
 
 [tool.poetry.group.test.dependencies]
 pytest = "^8.2.2"
 pytest-timeout = "^2.3.1"
 
-
-[tool.poetry.group.optionally.dependencies]
-selenium = "4.15.2"
 
 [build-system]
 requires = ["poetry-core"]

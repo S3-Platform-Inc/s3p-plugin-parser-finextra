@@ -46,8 +46,17 @@ config = PluginConfig(
         entry=payload.entry.EntryConfig(
             method='content',
             params=[
-                payload.entry.ModuleParamConfig(key='web_driver', module_name=WebDriver, bus=True),
-                payload.entry.ConstParamConfig(key='host', value="https://www.finextra.com"),
+                payload.entry.ConstParamConfig('feeds', [
+                    'https://www.finextra.com/rss/channel.aspx?channel=ai/feed',
+                    'https://www.finextra.com/rss/channel.aspx?channel=blockchain/feed',
+                    'https://www.finextra.com/rss/channel.aspx?channel=cards/feed',
+                    'https://www.finextra.com/rss/channel.aspx?channel=payments/feed',
+                    'https://www.finextra.com/rss/channel.aspx?channel=retail/feed',
+                    'https://www.finextra.com/rss/channel.aspx?channel=risk/feed',
+                    'https://www.finextra.com/rss/channel.aspx?channel=security/feed',
+                    'https://www.finextra.com/rss/channel.aspx?channel=startups/feed',
+                    'https://www.finextra.com/rss/channel.aspx?channel=transaction/feed',
+                ])
             ]
         )
     )
