@@ -68,6 +68,9 @@ class Finextra(S3PParserBase):
         # Parse the Finextra RSS feed
         feed = feedparser.parse(url)
 
+        if len(feed.entries) <= 0:
+            raise ValueError(f'RSS feed {url} is empty')
+
         # Iterate through feed entries
         for entry in feed.entries:
             parsed_date = dateutil.parser.parse(entry.published)
