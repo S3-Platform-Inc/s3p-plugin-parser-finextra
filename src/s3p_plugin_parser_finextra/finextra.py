@@ -1,5 +1,6 @@
 import copy
 import time
+from datetime import datetime
 from typing import Iterator
 
 import dateparser
@@ -43,11 +44,12 @@ class Finextra(S3PParserBase):
                 number
             ):
                 time.sleep(randint(1,3))
-                self._parsed_webpage(document)
+                parsed_document = self._parsed_webpage(document)
                 try:
-                    self._find(document)
+                    parsed_document.loaded = datetime.now()
+                    self._find(parsed_document)
                 except S3PPluginParserOutOfRestrictionException as e:
-                    self.logger.warning(f"Document {document.id} is outside the specified date range")
+                    self.logger.warning(f"Document {parsed_document.link} is outside the specified date range")
                     if e.restriction == FROM_DATE:
                         break
                 except S3PPluginParserFinish as e:
@@ -88,7 +90,7 @@ class Finextra(S3PParserBase):
         #Делаем запрос к странице
         response = requests.get(document.link)
         if response.status_code != 200:
-            raise ConnectionError(f"Failed to access {self.max_bad_requests} pages. Status code: {response.status_code}")
+            raise ConnectionError(f"Failed to access {document.link} page. Status code: {response.status_code}")
 
         html = response.text
         soup = BeautifulSoup(html, 'html.parser')

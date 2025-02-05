@@ -76,7 +76,7 @@ class TestPayloadRun:
             3. Каждый полученный документ должен обязательно содержать 3 ключевых поля (title, link, published)
 
         """
-        max_docs = 18
+        max_docs = 20
         docs = self.run_payload(fix_payload, fix_s3pRefer, fix_s3pPlugin, S3PPluginRestrictions(max_docs, None, None, None))
 
         # 1. Количество материалов должно быть не меньше параметра максимального числа материалов.
@@ -91,6 +91,8 @@ class TestPayloadRun:
             assert el.link is not None and isinstance(el.link, str), f"Документ {el} должен обязательно содержать ключевое поле link"
             assert el.published is not None and isinstance(el.published, datetime.datetime), f"Документ {el} должен обязательно содержать ключевое поле published"
             assert el.hash
+            assert el.other is not None
+            assert el.loaded is not None
 
     @pytest.mark.timeout(80)
     def test_date_restrictions(self, fix_s3pRefer, fix_payload, fix_s3pPlugin, fix_plugin_config):
