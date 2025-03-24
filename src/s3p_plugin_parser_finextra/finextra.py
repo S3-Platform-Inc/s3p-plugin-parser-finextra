@@ -137,6 +137,16 @@ class Finextra(S3PParserBase):
                 article_text = '\n'.join([p.get_text(strip=True) for p in article_body.find_all('p')])
                 self.doc.text = article_text
 
+            # Abstract field
+            if self.doc.other['summary'] is not None:
+                self.doc.abstract = self.doc.other['summary']
+            else:
+                description_tag = self.soup.find('meta', attrs={'name': 'description'})
+                if description_tag:
+                    # Аннотация найдена в `meta` теге
+                    self.doc.abstract = description_tag.get('content')
+                # Аннотация не найдена
+
             # Additional fields
             types_additions = ['company', 'channel', 'keyword']
             additional_section = self.soup.find('div', class_='additional-info')
